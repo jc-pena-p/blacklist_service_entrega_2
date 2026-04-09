@@ -1,0 +1,291 @@
+{
+  "info": {
+    "name": "Blacklist Service API Tests",
+    "description": "Collection of API tests for the Blacklist Service microservice",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "devops-static-token",
+      "type": "string"
+    },
+    {
+      "key": "testEmail",
+      "value": "test@example.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has status ok\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql(\"ok\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Add Email to Blacklist - Success",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"{{testEmail}}\",\n    \"app_uuid\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"blocked_reason\": \"spam\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/blacklists",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists"]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "var timestamp = Date.now();",
+              "pm.variables.set(\"testEmail\", \"test+\" + timestamp + \"@example.com\");"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test(\"Response has success message\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.eql(\"Email added to blacklist\");",
+              "    pm.expect(jsonData.data.app_uuid).to.eql(\"123e4567-e89b-12d3-a456-426614174000\");",
+              "    pm.expect(jsonData.data.blocked_reason).to.eql(\"spam\");",
+              "});",
+              "",
+              "pm.test(\"Email in response matches request\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.email).to.eql(pm.variables.get(\"testEmail\"));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check Email in Blacklist - Exists",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/blacklists/{{testEmail}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists", "{{testEmail}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Email is blacklisted\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.email).to.eql(pm.variables.get(\"testEmail\"));",
+              "    pm.expect(jsonData.is_blacklisted).to.be.true;",
+              "    pm.expect(jsonData.blocked_reason).to.eql(\"spam\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check Email in Blacklist - Not Exists",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/blacklists/nonexistent@example.com",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists", "nonexistent@example.com"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Email is not blacklisted\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.email).to.eql(\"nonexistent@example.com\");",
+              "    pm.expect(jsonData.is_blacklisted).to.be.false;",
+              "    pm.expect(jsonData.blocked_reason).to.be.null;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check Email without Token - Should Fail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/blacklists/test@example.com",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists", "test@example.com"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 401\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Add Email with Invalid UUID - Should Fail",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"bad@example.com\",\n    \"app_uuid\": \"uuid-invalido\",\n    \"blocked_reason\": \"spam\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/blacklists",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Add Invalid Email - Should Fail",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"no-es-email\",\n    \"app_uuid\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"blocked_reason\": \"spam\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/blacklists",
+          "host": ["{{baseUrl}}"],
+          "path": ["blacklists"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
