@@ -7,3 +7,19 @@ venv/
 instance/
 *.sqlite3
 *.db
+
+
+# Terraform
+terraform/app.zip
+**/.terraform/*
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
