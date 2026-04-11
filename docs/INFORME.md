@@ -64,17 +64,25 @@ El entorno fue configurado con un mínimo de **3 instancias EC2**, utilizando un
 El despliegue fue validado mediante:
 
 * La consola de **AWS Elastic Beanstalk**, en la pestaña *Events*, donde se observó la ejecución del proceso de actualización del entorno.
+
 ![alt text](<images/Captura de pantalla 2026-04-11 110203.png>)
+
 * La sección de **Implementaciones**, donde el estado del despliegue aparece como **“Succeeded”**.
+
 ![alt text](<images/Captura de pantalla 2026-04-11 110222.png>)
+
 * Acceso a la aplicación mediante la URL pública:
 
-  `blacklist-service-dev-env.eba-...`
+  `blacklist-service-dev-env.eba-r55pxkv7.us-east-1.elasticbeanstalk.com`
 
   verificando el endpoint `/health`, el cual respondió correctamente con estado `"ok"`.
-  ![alt text](<images/Captura de pantalla 2026-04-11 110411.png>)
+
+![alt text](<images/Captura de pantalla 2026-04-11 110411.png>)
+
 * Ejecución de pruebas automatizadas en **Postman**, donde todos los endpoints respondieron correctamente sin errores.
+
 ![alt text](images/image-1.png)
+
 ![alt text](<images/Captura de pantalla 2026-04-11 110335.png>)
 
 #### Tiempo total
@@ -88,11 +96,8 @@ El tiempo total del despliegue fue aproximadamente:
 
 (Este dato se obtuvo directamente de la sección *Implementaciones* en AWS Beanstalk)
 
----
 #### Monitoreo
 ![alt text](<images/Captura de pantalla 2026-04-11 110523.png>)
-
----
 
 #### Instancias iniciales o nuevas
 
@@ -101,8 +106,6 @@ Durante la estrategia **Rolling**, el despliegue se realizó utilizando las **in
 * No se crearon nuevas instancias.
 * Las instancias fueron actualizadas por lotes.
 * Algunas instancias continuaron atendiendo tráfico mientras otras eran actualizadas.
-
----
 
 #### Hallazgos
 
