@@ -133,6 +133,30 @@ resource "aws_elastic_beanstalk_environment" "env" {
   }
 
   setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerType"
+    value     = "application"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:command"
+    name      = "DeploymentPolicy"
+    value     = "TrafficSplitting"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:trafficsplitting"
+    name      = "NewVersionPercent"
+    value     = "15" # Redirige el 15% del tráfico a la nueva versión
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:trafficsplitting"
+    name      = "EvaluationTime"
+    value     = "5" # Evalúa errores en minutos
+  }
+
+  setting {
     namespace = "aws:autoscaling:asg"
     name      = "MinSize"
     value     = "3"

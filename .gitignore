@@ -12,6 +12,7 @@ instance/
 # Terraform
 terraform/app.zip
 **/.terraform/*
+*.tfstate
 *.tfstate.*
 crash.log
 crash.*.log
