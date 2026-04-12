@@ -7,6 +7,8 @@
 - Juan Camiño Peña
 - David Gutierrez
 
+**Link Video Presentación Entrega 1:** [Video Entrega 1 DevOps Blacklist-service](https://uniandes-my.sharepoint.com/:v:/g/personal/k_bravop_uniandes_edu_co/IQDQ_fLqKD2rQbsrEP7JTGCSAVl-8dSYC5DPPPepnLZb2yU?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJPbmVEcml2ZUZvckJ1c2luZXNzIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXciLCJyZWZlcnJhbFZpZXciOiJNeUZpbGVzTGlua0NvcHkifX0&e=8PYwba)
+
 ## 2. Descripcion de la solucion
 El microservicio fue desarrollado utilizando Flask, un framework ligero de Python para la construcción de APIs REST, el cual permite gestionar las operaciones de la lista negra de correos electrónicos.
 
