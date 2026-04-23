@@ -285,3 +285,5 @@ Despliega las nuevas versiones en un batch separado, pero redirige un % controla
   "blocked_reason": null
 }
 ```
+
+# Prueba build exitoso" | Out-File -Append README.md -Encoding utf8
