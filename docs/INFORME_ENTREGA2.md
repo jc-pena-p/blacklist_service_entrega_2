@@ -15,7 +15,7 @@
 
 Sobre la base del microservicio desplegado en la Entrega 1, el equipo construyó un pipeline de **Integración Continua (CI)** que se dispara automáticamente cada vez que se empuja un commit a la rama `master` del repositorio. El pipeline descarga el código fuente desde GitHub, instala las dependencias del proyecto, ejecuta las pruebas unitarias y, si todo pasa en verde, genera el artefacto `.zip` y lo publica en un bucket de S3. Si alguna prueba falla, el pipeline se detiene en la fase de Build y el artefacto no se genera, evitando que código roto avance a un eventual proceso de despliegue.
 
-La orquestación se implementó con **AWS CodePipeline** usando dos etapas: una etapa `Source` que se conecta al repositorio de GitHub mediante una conexión **CodeStar Connection (AWS Connector for GitHub)**, y una etapa `Build` que invoca un proyecto de **AWS CodeBuild** parametrizado con el archivo `buildspec.yml` del repositorio. Toda la infraestructura del pipeline — bucket S3 de artefactos, roles IAM, proyecto CodeBuild, conexión CodeStar y el propio CodePipeline — está declarada en Terraform (`terraform/codebuild.tf`) para que cualquier integrante del equipo pueda reproducirla ejecutando `terraform apply`.
+La orquestación se implementó con **AWS CodePipeline** usando dos etapas: una etapa `Source` que se conecta al repositorio de GitHub mediante una conexión de **AWS CodeConnections** (servicio renombrado desde *CodeStar Connections* en julio de 2024; el recurso de Terraform conserva el nombre `aws_codestarconnections_connection` por compatibilidad hacia atrás) usando la **GitHub App "AWS Connector for GitHub"**, y una etapa `Build` que invoca un proyecto de **AWS CodeBuild** parametrizado con el archivo `buildspec.yml` del repositorio. Toda la infraestructura del pipeline — bucket S3 de artefactos, roles IAM, proyecto CodeBuild, conexión CodeConnections y el propio CodePipeline — está declarada en Terraform (`terraform/codebuild.tf`) para que cualquier integrante del equipo pueda reproducirla ejecutando `terraform apply`.
 
 Para las pruebas unitarias dentro del CI se optó por usar **SQLite en memoria** (modo `mocks`, sin necesidad de levantar un motor de base de datos dentro de CodeBuild). Esta decisión se tomó porque el microservicio usa SQLAlchemy como capa de abstracción sobre la base de datos: las pruebas validan correctamente la lógica de los endpoints y del ORM sin necesidad de aprovisionar un Postgres adicional dentro del proceso de CI, lo que reduce el tiempo de ejecución del pipeline y simplifica su configuración. La instancia de **RDS Postgres** que aprovisiona Terraform sigue existiendo y es la que utiliza la aplicación cuando está desplegada en Elastic Beanstalk (producción), pero queda completamente fuera del alcance del pipeline de CI.
 
@@ -85,11 +85,11 @@ Toda la infraestructura del CI se definió en `terraform/codebuild.tf`. Los recu
 
 - **Bucket S3 `blacklist-service-dev-ci-artifacts-*`**: aterrizan tanto el código fuente descargado de GitHub como el `.zip` generado por el build.
 - **Proyecto CodeBuild `blacklist-service-dev-ci`**: configurado con `BUILD_GENERAL1_SMALL` sobre la imagen `aws/codebuild/standard:7.0` (Ubuntu, Python 3.11). Como se invoca desde CodePipeline, su fuente y artefactos son de tipo `CODEPIPELINE`.
-- **Conexión CodeStar con GitHub** (`AWS Connector for GitHub`): canal por el que CodePipeline detecta cambios en el repositorio.
+- **Conexión CodeConnections con GitHub** (vía la GitHub App `AWS Connector for GitHub`): canal por el que CodePipeline detecta cambios en el repositorio.
 - **CodePipeline `blacklist-service-dev-pipeline`** con dos etapas:
-  - `Source`: CodeStar/GitHub, rama `master`, `DetectChanges=true`.
+  - `Source`: CodeConnections/GitHub, rama `master`, `DetectChanges=true`.
   - `Build`: invoca al proyecto CodeBuild.
-- **Roles IAM** con políticas mínimas: el rol de CodeBuild tiene permisos de CloudWatch Logs y acceso al bucket de artefactos; el rol de CodePipeline tiene permisos para usar la conexión CodeStar, disparar builds y leer/escribir en el bucket.
+- **Roles IAM** con políticas mínimas: el rol de CodeBuild tiene permisos de CloudWatch Logs y acceso al bucket de artefactos; el rol de CodePipeline tiene permisos para usar la conexión CodeConnections, disparar builds y leer/escribir en el bucket.
 
 ### 4.3 Proyecto CodeBuild
 
@@ -99,9 +99,9 @@ El proyecto CodeBuild lee el `buildspec.yml` del repositorio en cada ejecución,
 
 ### 4.4 Disparo automático sobre master
 
-La etapa `Source` del pipeline incluye `BranchName = "master"` y `DetectChanges = true`. Con esos dos parámetros, CodePipeline registra internamente un webhook contra la conexión CodeStar y recibe notificaciones de GitHub cada vez que se empuja un commit a esa rama. Cuando llega la notificación, el pipeline arranca automáticamente desde la etapa `Source`, sin necesidad de activarlo manualmente desde la consola.
+La etapa `Source` del pipeline incluye `BranchName = "master"` y `DetectChanges = true`. Con esos dos parámetros, CodePipeline registra internamente un webhook contra la conexión CodeConnections y recibe notificaciones de GitHub cada vez que se empuja un commit a esa rama. Cuando llega la notificación, el pipeline arranca automáticamente desde la etapa `Source`, sin necesidad de activarlo manualmente desde la consola.
 
-El único paso de la infraestructura que no se pudo automatizar completamente con Terraform fue la **autorización inicial de la conexión CodeStar**: AWS la crea en estado `Pending` y un humano debe aprobarla una sola vez desde la consola, seleccionando la GitHub App ya instalada sobre el repositorio.
+El único paso de la infraestructura que no se pudo automatizar completamente con Terraform fue la **autorización inicial de la conexión CodeConnections**: AWS la crea en estado `Pending` y un humano debe aprobarla una sola vez desde la consola, seleccionando la GitHub App ya instalada sobre el repositorio.
 
 ![Pipeline creado en CodePipeline](images/entrega2/codepipeline-overview.png)
 
@@ -109,7 +109,7 @@ El único paso de la infraestructura que no se pudo automatizar completamente co
 
 ![Etapa Build configurada](images/entrega2/codepipeline-build-stage.png)
 
-![Conexión CodeStar con GitHub en estado Available](images/entrega2/codestar-connection.png)
+![Conexión CodeConnections con GitHub en estado Available](images/entrega2/codestar-connection.png)
 
 ![Bucket S3 de artefactos](images/entrega2/s3-artifacts-bucket.png)
 
@@ -135,7 +135,7 @@ Se realizó un push a `master` con un commit ordinario que no altera la lógica 
 
 #### Hallazgos
 
-- El pipeline se autodispara correctamente desde el commit a master, validando que el webhook de la conexión CodeStar quedó bien registrado.
+- El pipeline se autodispara correctamente desde el commit a master, validando que el webhook de la conexión CodeConnections quedó bien registrado.
 - La fase `install` (descarga de Poetry + dependencias) es la más larga del build.
 - El artefacto se genera **únicamente** después de que las pruebas pasan: la fase `build` (empaquetado) corre después de `pre_build` (pytest), garantizando que ningún zip llegue a S3 con código que no compile o que rompa los tests.
 
@@ -196,12 +196,12 @@ La documentación de Postman publicada con la colección de pruebas para los end
 
 - URL del repositorio: [https://github.com/jc-pena-p/blacklist_service_entrega_2](https://github.com/jc-pena-p/blacklist_service_entrega_2)
 - Rama configurada en el pipeline: `master`
-- Conexión a AWS: GitHub App **AWS Connector for GitHub** instalada sobre el repositorio + CodeStar Connection en estado `Available`.
+- Conexión a AWS: GitHub App **AWS Connector for GitHub** instalada sobre el repositorio + conexión **AWS CodeConnections** en estado `Available`.
 
-> El repositorio es un **fork** del original `KenethBravoP/blacklist_service`. La razón del fork fue poder instalar la GitHub App sobre el repositorio (solo el owner puede hacerlo), requisito indispensable para que la conexión CodeStar pase a estado `Available` y CodePipeline pueda registrar el webhook de disparo automático.
+> El repositorio es un **fork** del original `KenethBravoP/blacklist_service`. La razón del fork fue poder instalar la GitHub App sobre el repositorio (solo el owner puede hacerlo), requisito indispensable para que la conexión CodeConnections pase a estado `Available` y CodePipeline pueda registrar el webhook de disparo automático.
 
 ## 8. Conclusiones
 
 La arquitectura basada en CodePipeline y CodeBuild se ajustó naturalmente al alcance de la entrega: una etapa detecta los cambios en el repositorio y otra ejecuta la construcción del artefacto, separando responsabilidades sin agregar complejidad. Tener toda la infraestructura declarada en Terraform fue determinante para la velocidad del trabajo, ya que permitió iterar y recuperar el estado de los recursos de forma reproducible ante cualquier inconveniente.
 
-El punto más delicado del proceso fue la integración entre AWS y GitHub a través de la conexión CodeStar, donde es necesario distinguir entre autorizar la aplicación y posteriormente instalarla sobre un repositorio en el que el integrante tenga permisos de owner. Esta es la única parte del flujo que no se logró automatizar completamente con Terraform, y queda documentada para futuras entregas.
+El punto más delicado del proceso fue la integración entre AWS y GitHub a través de la conexión CodeConnections (servicio anteriormente conocido como CodeStar Connections), donde es necesario distinguir entre autorizar la aplicación y posteriormente instalarla sobre un repositorio en el que el integrante tenga permisos de owner. Esta es la única parte del flujo que no se logró automatizar completamente con Terraform, y queda documentada para futuras entregas.
