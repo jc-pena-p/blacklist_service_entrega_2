@@ -82,3 +82,7 @@ def test_validates_payload(client, auth_headers):
     assert 'email' in body['errors']
     assert 'app_uuid' in body['errors']
     assert 'blocked_reason' in body['errors']
+
+
+def test_forzar_fallo_pipeline():
+    assert False
