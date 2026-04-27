@@ -1,4 +1,4 @@
-# Entrega 1 - Microservicio de blacklist global
+# Microservicio de blacklist global
 
 Microservicio REST en Flask para la gestion de lista negra global de emails.
 
@@ -240,6 +240,36 @@ Despliega las nuevas versiones en un batch separado, pero redirige un % controla
   }
 ```
 
+## Entrega 2 - Pipeline de Integración Continua (CI)
+
+A partir de la Entrega 2 el repositorio cuenta con un pipeline de **Integración Continua** sobre AWS que se dispara automáticamente con cada push a la rama `master`. El pipeline ejecuta las pruebas unitarias y, si pasan en verde, genera un artefacto `.zip` que queda publicado en un bucket de S3. Si los tests fallan, el pipeline aborta antes del empaquetado y no se genera artefacto.
+
+**Arquitectura:** GitHub → AWS CodeConnections (anteriormente CodeStar Connections) → AWS CodePipeline → AWS CodeBuild → S3.
+
+**Esta entrega NO incluye despliegue automatizado (CD)** por requerimiento explícito del enunciado: el artefacto se genera pero no se despliega a Beanstalk desde el pipeline.
+
+### Archivos clave de la Entrega 2
+
+- `buildspec.yml` — fases (`install`, `pre_build`, `build`) que CodeBuild ejecuta en cada run.
+- `terraform/codebuild.tf` — infraestructura del pipeline (proyecto CodeBuild, CodePipeline, bucket S3 de artefactos, roles IAM, conexión CodeConnections).
+- `tests/test_blacklists.py` — 7 escenarios de prueba unitaria que cubren los 3 endpoints (`/health`, `POST /blacklists`, `GET /blacklists/<email>`) más casos de auth y validación.
+
+### Cómo levantar el pipeline
+
+Asumiendo que ya existe un usuario IAM con permisos suficientes y la GitHub App `AWS Connector for GitHub` está instalada sobre el repositorio:
+
+```bash
+cd terraform
+terraform apply
+```
+
+La conexión CodeConnections nace en estado `Pending` y requiere aprobación humana una sola vez en la consola de AWS (Developer Tools → Settings → Connections). Una vez en `Available`, los pushes a master disparan el pipeline automáticamente.
+
+### Documentación de la Entrega 2
+
+- **Informe:** [docs/INFORME_ENTREGA2.md](docs/INFORME_ENTREGA2.md)
+- **Video de sustentación:** [Video Entrega 2 DevOps Blacklist-service](https://drive.google.com/file/d/1k0S88Cq0Ksv4nhIDJcWdq5ee_GJHqlaW/view?usp=sharing)
+
 ## Despliegue manual en Elastic Beanstalk
 
 1. Cree la base de datos PostgreSQL en RDS y permita el acceso desde el security group del ambiente Beanstalk.
@@ -285,5 +315,3 @@ Despliega las nuevas versiones en un batch separado, pero redirige un % controla
   "blocked_reason": null
 }
 ```
-
-# Prueba build exitoso" | Out-File -Append README.md -Encoding utf8

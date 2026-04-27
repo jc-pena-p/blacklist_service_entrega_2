@@ -9,7 +9,7 @@
 - Juan Camilo Peña
 - David Gutierrez
 
-**Link Video Presentación Entrega 2:** [pendiente]
+**Link Video Presentación Entrega 2:** [Video Entrega 2 DevOps Blacklist-service](https://drive.google.com/file/d/1k0S88Cq0Ksv4nhIDJcWdq5ee_GJHqlaW/view?usp=sharing)
 
 ## 2. Descripcion de la solucion
 
