@@ -32,3 +32,36 @@ output "github_connection_arn" {
   description = "ARN of the CodeStar GitHub connection (must be authorized manually in the AWS console before the first pipeline run)"
   value       = aws_codestarconnections_connection.github.arn
 }
+
+# -----------------------------------------------------------------------------
+# Outputs Entrega 3 — CD a Fargate
+# -----------------------------------------------------------------------------
+output "ecr_repository_url" {
+  description = "URI of the ECR repository where the application image is pushed"
+  value       = aws_ecr_repository.app.repository_url
+}
+
+output "alb_dns_name" {
+  description = "Public DNS name of the Application Load Balancer (use this URL to hit the app from Postman)"
+  value       = aws_lb.app.dns_name
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster running the application"
+  value       = aws_ecs_cluster.app.name
+}
+
+output "ecs_service_name" {
+  description = "Name of the ECS service running the application"
+  value       = aws_ecs_service.app.name
+}
+
+output "codedeploy_application_name" {
+  description = "Name of the CodeDeploy application that orchestrates Blue/Green deployments"
+  value       = aws_codedeploy_app.app.name
+}
+
+output "codedeploy_deployment_group_name" {
+  description = "Name of the CodeDeploy deployment group"
+  value       = aws_codedeploy_deployment_group.app.deployment_group_name
+}

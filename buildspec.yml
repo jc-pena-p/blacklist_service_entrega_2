@@ -8,7 +8,7 @@ phases:
       - echo "Installing Poetry..."
       - python -m pip install --upgrade pip
       - pip install poetry
-      - echo "Installing project dependencies with Poetry..."
+      - echo "Installing project dependencies (with dev) for tests..."
       - poetry config virtualenvs.create false
       - poetry install --no-interaction --no-ansi
 
@@ -16,15 +16,39 @@ phases:
     commands:
       - echo "Running unit tests..."
       - poetry run pytest -v tests/
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
 
   build:
     commands:
-      - echo "Packaging application artifact..."
-      - zip -r blacklist-service.zip . -x "tests/*" "terraform/*" "docs/*" ".git/*" ".github/*" "__pycache__/*" "*/__pycache__/*" "*.pyc" ".venv/*" "venv/*" ".pytest_cache/*" "*.db" "*.sqlite3"
-      - echo "Artifact generated successfully."
+      - echo "Building the Docker image..."
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo "Pushing the Docker images to ECR..."
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo "Writing image definitions and details files..."
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - printf '{"ImageURI":"%s"}' "$REPOSITORY_URI:$IMAGE_TAG" > imageDetail.json
+      - echo "Substituting placeholders in taskdef.json..."
+      - sed -i "s|<EXECUTION_ROLE_ARN>|$EXECUTION_ROLE_ARN|g" taskdef.json
+      - sed -i "s|<TASK_ROLE_ARN>|$TASK_ROLE_ARN|g" taskdef.json
+      - sed -i "s|<DATABASE_URL>|$DATABASE_URL|g" taskdef.json
+      - echo "Final taskdef.json:"
+      - cat taskdef.json
+      - echo "imageDetail.json:"
+      - cat imageDetail.json
 
 artifacts:
   files:
-    - blacklist-service.zip
+    - imagedefinitions.json
+    - imageDetail.json
+    - taskdef.json
+    - appspec.yaml
   discard-paths: yes
-  name: blacklist-service-$(date +%Y%m%d-%H%M%S)

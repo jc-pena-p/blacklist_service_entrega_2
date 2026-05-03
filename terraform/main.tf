@@ -75,24 +75,35 @@ resource "aws_security_group" "rds_sg" {
   description = "Security group for RDS PostgreSQL"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.beanstalk_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # Las reglas se manejan como aws_security_group_rule externos (ver abajo y
+  # también en fargate.tf) para evitar conflicto entre inline rules y reglas
+  # externas. Mezclar las dos formas hace que terraform sobrescriba unas con
+  # otras y deje el SG inconsistente con el state.
 
   tags = {
     Name        = "${var.app_name}-${var.environment}-rds-sg"
     Environment = var.environment
   }
+}
+
+resource "aws_security_group_rule" "rds_from_beanstalk" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds_sg.id
+  source_security_group_id = aws_security_group.beanstalk_sg.id
+  description              = "Allow Beanstalk EC2 instances to reach the RDS Postgres instance"
+}
+
+resource "aws_security_group_rule" "rds_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.rds_sg.id
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow all outbound traffic from the RDS security group"
 }
 
 resource "aws_security_group" "beanstalk_sg" {

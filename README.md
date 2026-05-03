@@ -270,6 +270,60 @@ La conexión CodeConnections nace en estado `Pending` y requiere aprobación hum
 - **Informe:** [docs/INFORME_ENTREGA2.md](docs/INFORME_ENTREGA2.md)
 - **Video de sustentación:** [Video Entrega 2 DevOps Blacklist-service](https://drive.google.com/file/d/1k0S88Cq0Ksv4nhIDJcWdq5ee_GJHqlaW/view?usp=sharing)
 
+## Entrega 3 - Pipeline de Entrega Continua (CD) sobre AWS Fargate
+
+A partir de la Entrega 3 el pipeline pasa a tener **tres etapas** (Source → Build → Deploy). La aplicación se containeriza con Docker, se publica como imagen en **Amazon ECR**, y se despliega automáticamente sobre **AWS Fargate** con estrategia **Blue/Green** orquestada por **AWS CodeDeploy**.
+
+**Arquitectura:**
+
+```
+GitHub (master) → CodeConnections → CodePipeline
+                                     ├─ Source
+                                     ├─ Build (pytest + docker build + push ECR)
+                                     └─ Deploy (CodeDeploy Blue/Green sobre ECS Fargate)
+                                                     │
+                                                     ▼
+                                     ALB ──→ Target Group blue / green ──→ Fargate Tasks ──→ RDS Postgres
+```
+
+### Archivos clave de la Entrega 3
+
+- `Dockerfile` — imagen Python 3.11 + gunicorn que expone la app en puerto 5000.
+- `buildspec.yml` — reescrito para construir y pushear imagen Docker, además de correr tests.
+- `appspec.yaml` — plantilla CodeDeploy para ECS Blue/Green.
+- `taskdef.json` — plantilla del Task Definition con placeholders que CodeBuild/CodePipeline rellenan.
+- `terraform/fargate.tf` — toda la infraestructura nueva (ECR, ALB, ECS Cluster + Service + Task Definition, IAM roles, CodeDeploy Application + Deployment Group, Target Groups, Listeners, Security Groups).
+- `terraform/codebuild.tf` — extendido con etapa Deploy en el pipeline, modo privilegiado en CodeBuild, y permisos extra (ECR + CodeDeploy + ECS + PassRole).
+
+### Cómo levantarlo
+
+Asumiendo todo lo de Entrega 2 ya levantado (CodeConnections en `Available`, RDS corriendo):
+
+```bash
+cd terraform
+terraform apply
+```
+
+Después del primer apply, hay que pushear la imagen inicial a ECR para que el servicio ECS pueda arrancar:
+
+```bash
+docker build -t <ECR_URL>/blacklist-service-dev-app:latest .
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+docker push <ECR_URL>/blacklist-service-dev-app:latest
+aws ecs update-service --cluster blacklist-service-dev-cluster --service blacklist-service-dev-service --force-new-deployment
+```
+
+A partir del segundo deploy, todo es automático: cada `git push origin master` dispara CI + CD completos.
+
+### Documentación de la Entrega 3
+
+- **Informe:** [docs/INFORME_ENTREGA3.md](docs/INFORME_ENTREGA3.md)
+- **Video de sustentación:** [pendiente]
+
+### Sobre CodeCommit
+
+La rúbrica de Entrega 3 menciona AWS CodeCommit como repositorio. AWS **descontinuó CodeCommit para nuevos clientes en julio de 2024**, así que se mantiene GitHub via CodeConnections (servicio renombrado desde CodeStar Connections en la misma fecha). El recurso de Terraform `aws_codestarconnections_connection` conserva el nombre antiguo por compatibilidad.
+
 ## Despliegue manual en Elastic Beanstalk
 
 1. Cree la base de datos PostgreSQL en RDS y permita el acceso desde el security group del ambiente Beanstalk.
