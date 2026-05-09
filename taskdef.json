@@ -18,13 +18,6 @@
           "protocol": "tcp"
         }
       ],
-      "healthCheck": {
-        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)\" || exit 1"],
-        "interval": 30,
-        "timeout": 5,
-        "retries": 3,
-        "startPeriod": 60
-      },
       "environment": [
         { "name": "DATABASE_URL", "value": "<DATABASE_URL>" },
         { "name": "AUTH_TOKEN", "value": "devops-static-token" },
