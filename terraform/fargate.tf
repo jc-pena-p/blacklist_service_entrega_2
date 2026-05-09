@@ -470,6 +470,59 @@ resource "aws_codedeploy_deployment_group" "app" {
 
   auto_rollback_configuration {
     enabled = true
-    events  = ["DEPLOYMENT_FAILURE"]
+    events  = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
+  }
+
+  # Hace que CodeDeploy declare el deploy como FAILED apenas un alarm
+  # entra en ALARM state durante el despliegue. Sin esto, CodeDeploy
+  # esperaría ~60 min a que su timeout interno expire.
+  alarm_configuration {
+    enabled = true
+    alarms = [
+      aws_cloudwatch_metric_alarm.unhealthy_targets_blue.alarm_name,
+      aws_cloudwatch_metric_alarm.unhealthy_targets_green.alarm_name,
+    ]
+  }
+}
+
+# -----------------------------------------------------------------------------
+# CloudWatch Alarms — detección rápida de tasks unhealthy
+#
+# Si cualquiera de los target groups (blue o green) tiene >= 1 target unhealthy
+# durante un deploy, el alarm dispara y CodeDeploy aborta el despliegue.
+# -----------------------------------------------------------------------------
+resource "aws_cloudwatch_metric_alarm" "unhealthy_targets_blue" {
+  alarm_name          = "${var.app_name}-${var.environment}-tg-blue-unhealthy"
+  alarm_description   = "Trigger CodeDeploy rollback when blue target group has unhealthy targets"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 1
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.app.arn_suffix
+    TargetGroup  = aws_lb_target_group.blue.arn_suffix
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "unhealthy_targets_green" {
+  alarm_name          = "${var.app_name}-${var.environment}-tg-green-unhealthy"
+  alarm_description   = "Trigger CodeDeploy rollback when green target group has unhealthy targets"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 1
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.app.arn_suffix
+    TargetGroup  = aws_lb_target_group.green.arn_suffix
   }
 }
