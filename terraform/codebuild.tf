@@ -211,10 +211,14 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Effect = "Allow"
         Action = [
           "codedeploy:CreateDeployment",
+          "codedeploy:GetApplication",
+          "codedeploy:GetApplicationRevision",
           "codedeploy:GetDeployment",
           "codedeploy:GetDeploymentConfig",
-          "codedeploy:GetApplicationRevision",
-          "codedeploy:RegisterApplicationRevision"
+          "codedeploy:GetDeploymentGroup",
+          "codedeploy:RegisterApplicationRevision",
+          "codedeploy:ListApplications",
+          "codedeploy:ListDeploymentGroups"
         ]
         Resource = "*"
       },
