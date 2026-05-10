@@ -22,4 +22,4 @@ COPY application.py ./
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--preload", "--bind", "0.0.0.0:6000", "--workers", "2", "--timeout", "60", "application:application"]
+CMD ["gunicorn", "--preload", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "60", "application:application"]
