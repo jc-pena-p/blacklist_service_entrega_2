@@ -7,7 +7,7 @@
 - Juan Camilo Peña
 - David Gutierrez
 
-**Link Video Presentación Entrega 3:** [Video Entrega 3 DevOps Blacklist-service](https://drive.google.com/file/d/1jm8hXk3yhQ0NyYMZadSQIL3-WneK-kg4/view?usp=sharing)
+**Link Video Presentación Entrega 3:** [Video Entrega 3 DevOps Blacklist-service](https://drive.google.com/file/d/1AStfy-8X05dtEMGvWNNrBvF7EhfGUSmK/view?usp=sharing)
 
 ## 2. Descripcion de la solucion
 
@@ -236,10 +236,10 @@ Se hizo commit y push a `master`.
 
 #### Tiempo total
 
-- Source: 4s
+- Source: 3s
 - Build (install + pre_build hasta la falla en pytest): 1min y 2s
 - Deploy: no ejecutado.
-- **Total pipeline:** ~1min y 8s
+- **Total pipeline:** ~1min y 7s
 
 #### Hallazgos
 
@@ -275,10 +275,10 @@ git push codecommit master
 
 #### Tiempo total
 
-- Source: 4s
-- Build: 2min y 4s
-- Deploy (incluyendo bake time + transición de tráfico): 7min y 14s
-- **Total pipeline:** ~9 minutes y 26s
+- Source: 3s
+- Build: 1min y 33s
+- Deploy (incluyendo bake time + transición de tráfico): 7min y 15s
+- **Total pipeline:** ~8 minutes y 54s
 
 #### Hallazgos
 
@@ -318,10 +318,10 @@ Esto **no rompe las pruebas unitarias** (que corren con SQLite en memoria a nive
 
 #### Tiempo total
 
-- Source: 4s
-- Build: 2min y 4s
-- Deploy (hasta declararse Failed + rollback): 6min y 12s
-- **Total pipeline:** ~8min y 22s
+- Source: 3s
+- Build: 2min y 3s
+- Deploy (hasta declararse Failed + rollback): 7min y 15s
+- **Total pipeline:** ~9min y 24s
 
 #### Hallazgos
 
