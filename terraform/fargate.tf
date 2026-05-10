@@ -1,16 +1,3 @@
-###############################################################################
-# Entrega 3 — CD a AWS Fargate con CodeDeploy Blue/Green
-#
-# Este archivo aprovisiona toda la infraestructura nueva para el despliegue
-# continuo. Se apoya en los recursos ya creados en Entrega 1 y 2:
-#   - VPC, subnets, internet gateway (main.tf)
-#   - RDS Postgres + rds_sg (rds.tf, main.tf)
-#   - CodeBuild project, CodePipeline, CodeStar Connection (codebuild.tf)
-###############################################################################
-
-# -----------------------------------------------------------------------------
-# Datos de la cuenta (necesarios para construir URIs de ECR, ARNs, etc.)
-# -----------------------------------------------------------------------------
 data "aws_caller_identity" "current" {}
 
 locals {
@@ -20,9 +7,6 @@ locals {
   database_url       = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${var.db_name}"
 }
 
-# -----------------------------------------------------------------------------
-# Repositorio ECR (Elastic Container Registry) para la imagen Docker
-# -----------------------------------------------------------------------------
 resource "aws_ecr_repository" "app" {
   name                 = "${var.app_name}-${var.environment}-app"
   image_tag_mutability = "MUTABLE"
@@ -38,12 +22,6 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# Security Groups
-#   - alb_sg: ALB acepta tráfico HTTP del mundo en :80 (prod) y :8080 (test).
-#   - ecs_service_sg: las tareas Fargate aceptan tráfico solo desde el ALB.
-#   - rds_from_ecs: regla extra al RDS para aceptar conexiones desde ECS.
-# -----------------------------------------------------------------------------
 resource "aws_security_group" "alb_sg" {
   name        = "${var.app_name}-${var.environment}-alb-sg"
   description = "Security group for the public Application Load Balancer"
@@ -104,7 +82,6 @@ resource "aws_security_group" "ecs_service_sg" {
   }
 }
 
-# Permite que las tareas ECS se conecten al RDS Postgres ya existente.
 resource "aws_security_group_rule" "rds_from_ecs" {
   type                     = "ingress"
   from_port                = 5432
@@ -115,9 +92,6 @@ resource "aws_security_group_rule" "rds_from_ecs" {
   description              = "Allow ECS tasks to reach the RDS Postgres instance"
 }
 
-# -----------------------------------------------------------------------------
-# Application Load Balancer + Target Groups (azul y verde) + Listeners
-# -----------------------------------------------------------------------------
 resource "aws_lb" "app" {
   name               = "${var.app_name}-${var.environment}-alb"
   internal           = false
@@ -183,8 +157,6 @@ resource "aws_lb_target_group" "green" {
   }
 }
 
-# Listener de producción (puerto 80). CodeDeploy va a reescribir su default_action
-# durante cada deployment Blue/Green para apuntar al target group activo.
 resource "aws_lb_listener" "prod" {
   load_balancer_arn = aws_lb.app.arn
   port              = 80
@@ -200,8 +172,6 @@ resource "aws_lb_listener" "prod" {
   }
 }
 
-# Listener de pruebas (puerto 8080). Lo usa CodeDeploy para validar la nueva
-# versión antes de cambiar el tráfico de producción.
 resource "aws_lb_listener" "test" {
   load_balancer_arn = aws_lb.app.arn
   port              = 8080
@@ -217,9 +187,6 @@ resource "aws_lb_listener" "test" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# CloudWatch Log Group para ECS
-# -----------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = local.ecs_log_group_name
   retention_in_days = 7
@@ -229,11 +196,6 @@ resource "aws_cloudwatch_log_group" "ecs" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# IAM Role: ECS Task Execution Role
-# Lo asume el agente de ECS para descargar la imagen de ECR y mandar logs
-# a CloudWatch.
-# -----------------------------------------------------------------------------
 resource "aws_iam_role" "ecs_task_execution" {
   name = "${var.app_name}-${var.environment}-ecs-task-execution-role"
 
@@ -256,11 +218,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# -----------------------------------------------------------------------------
-# IAM Role: ECS Task Role
-# Lo asume el contenedor mismo. Por ahora no hace nada (la app no llama a AWS),
-# pero queda creado para que el taskdef.json pueda referenciarlo siempre.
-# -----------------------------------------------------------------------------
 resource "aws_iam_role" "ecs_task" {
   name = "${var.app_name}-${var.environment}-ecs-task-role"
 
@@ -278,9 +235,6 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
-# -----------------------------------------------------------------------------
-# ECS Cluster
-# -----------------------------------------------------------------------------
 resource "aws_ecs_cluster" "app" {
   name = "${var.app_name}-${var.environment}-cluster"
 
@@ -294,13 +248,6 @@ resource "aws_ecs_cluster" "app" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# ECS Task Definition (revisión inicial)
-#
-# Esta es la primera revisión del task definition; CodeDeploy creará nuevas
-# revisiones en cada deploy reemplazando la imagen. Por eso hacemos
-# `ignore_changes` sobre container_definitions.
-# -----------------------------------------------------------------------------
 resource "aws_ecs_task_definition" "app" {
   family                   = local.ecs_task_family
   requires_compatibilities = ["FARGATE"]
@@ -347,13 +294,6 @@ resource "aws_ecs_task_definition" "app" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# ECS Service (con deployment controller = CODE_DEPLOY)
-#
-# CodeDeploy va a manejar las transiciones Blue/Green entre target groups y
-# task definitions. Por eso hacemos `ignore_changes` sobre task_definition y
-# load_balancer.
-# -----------------------------------------------------------------------------
 resource "aws_ecs_service" "app" {
   name            = "${var.app_name}-${var.environment}-service"
   cluster         = aws_ecs_cluster.app.id
@@ -391,10 +331,6 @@ resource "aws_ecs_service" "app" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# IAM Role: CodeDeploy ECS
-# Lo asume CodeDeploy para hacer Blue/Green deployments contra ECS.
-# -----------------------------------------------------------------------------
 resource "aws_iam_role" "codedeploy_ecs" {
   name = "${var.app_name}-${var.environment}-codedeploy-ecs-role"
 
@@ -417,9 +353,6 @@ resource "aws_iam_role_policy_attachment" "codedeploy_ecs" {
   policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
 }
 
-# -----------------------------------------------------------------------------
-# CodeDeploy Application + Deployment Group (Blue/Green sobre ECS)
-# -----------------------------------------------------------------------------
 resource "aws_codedeploy_app" "app" {
   compute_platform = "ECS"
   name             = "${var.app_name}-${var.environment}-cd-app"
@@ -473,9 +406,6 @@ resource "aws_codedeploy_deployment_group" "app" {
     events  = ["DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM"]
   }
 
-  # Hace que CodeDeploy declare el deploy como FAILED apenas un alarm
-  # entra en ALARM state durante el despliegue. Sin esto, CodeDeploy
-  # esperaría ~60 min a que su timeout interno expire.
   alarm_configuration {
     enabled = true
     alarms = [
@@ -485,12 +415,6 @@ resource "aws_codedeploy_deployment_group" "app" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# CloudWatch Alarms — detección rápida de tasks unhealthy
-#
-# Si cualquiera de los target groups (blue o green) tiene >= 1 target unhealthy
-# durante un deploy, el alarm dispara y CodeDeploy aborta el despliegue.
-# -----------------------------------------------------------------------------
 resource "aws_cloudwatch_metric_alarm" "unhealthy_targets_blue" {
   alarm_name          = "${var.app_name}-${var.environment}-tg-blue-unhealthy"
   alarm_description   = "Trigger CodeDeploy rollback when blue target group has unhealthy targets"

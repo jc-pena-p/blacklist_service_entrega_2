@@ -148,9 +148,74 @@ resource "aws_codebuild_project" "ci" {
   }
 }
 
-resource "aws_codestarconnections_connection" "github" {
-  name          = "${var.app_name}-${var.environment}-gh"
-  provider_type = "GitHub"
+resource "aws_codecommit_repository" "app" {
+  repository_name = "${var.app_name}-${var.environment}-repo"
+  description     = "Source repository for the blacklist-service pipeline"
+  default_branch  = var.ci_branch
+}
+
+# -----------------------------------------------------------------------------
+# EventBridge rule para auto-trigger del pipeline ante commits a la rama
+# configurada (var.ci_branch) en CodeCommit.
+#
+# Cuando se cambia el source provider de un pipeline de CodeStarSourceConnection
+# (que usa webhooks gestionados por AWS) a CodeCommit, AWS deja de inyectar el
+# webhook automático. Hay que crear un EventBridge rule explícito que escuche
+# el evento `referenceUpdated` en la rama y dispare `StartPipelineExecution`.
+# -----------------------------------------------------------------------------
+resource "aws_iam_role" "eventbridge_codepipeline" {
+  name = "${var.app_name}-${var.environment}-eb-codepipeline-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "eventbridge_codepipeline" {
+  name = "${var.app_name}-${var.environment}-eb-codepipeline-policy"
+  role = aws_iam_role.eventbridge_codepipeline.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["codepipeline:StartPipelineExecution"]
+        Resource = aws_codepipeline.ci.arn
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_event_rule" "codecommit_master" {
+  name        = "${var.app_name}-${var.environment}-codecommit-${var.ci_branch}"
+  description = "Trigger CodePipeline when commits land on ${var.ci_branch} of the CodeCommit repo"
+
+  event_pattern = jsonencode({
+    source      = ["aws.codecommit"]
+    detail-type = ["CodeCommit Repository State Change"]
+    resources   = [aws_codecommit_repository.app.arn]
+    detail = {
+      event         = ["referenceCreated", "referenceUpdated"]
+      referenceType = ["branch"]
+      referenceName = [var.ci_branch]
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "codepipeline" {
+  rule     = aws_cloudwatch_event_rule.codecommit_master.name
+  arn      = aws_codepipeline.ci.arn
+  role_arn = aws_iam_role.eventbridge_codepipeline.arn
 }
 
 resource "aws_iam_role" "codepipeline_role" {
@@ -199,12 +264,18 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         ]
         Resource = aws_codebuild_project.ci.arn
       },
+      # Permisos para que CodePipeline pueda leer del repositorio CodeCommit.
       {
         Effect = "Allow"
         Action = [
-          "codestar-connections:UseConnection"
+          "codecommit:GetBranch",
+          "codecommit:GetCommit",
+          "codecommit:GetRepository",
+          "codecommit:GetUploadArchiveStatus",
+          "codecommit:UploadArchive",
+          "codecommit:CancelUploadArchive"
         ]
-        Resource = aws_codestarconnections_connection.github.arn
+        Resource = aws_codecommit_repository.app.arn
       },
       # Permisos para invocar CodeDeploy desde la etapa Deploy del pipeline.
       {
@@ -273,15 +344,16 @@ resource "aws_codepipeline" "ci" {
       name             = "Source"
       category         = "Source"
       owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      provider         = "CodeCommit"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = var.github_full_repo_id
-        BranchName       = var.ci_branch
-        DetectChanges    = "true"
+        RepositoryName       = aws_codecommit_repository.app.repository_name
+        BranchName           = var.ci_branch
+        # Polling deshabilitado — usamos EventBridge para los triggers, es
+        # el patrón recomendado por AWS para CodeCommit + CodePipeline.
+        PollForSourceChanges = "false"
       }
     }
   }

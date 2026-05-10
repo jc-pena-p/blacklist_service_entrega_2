@@ -28,9 +28,19 @@ output "codepipeline_name" {
   value       = aws_codepipeline.ci.name
 }
 
-output "github_connection_arn" {
-  description = "ARN of the CodeStar GitHub connection (must be authorized manually in the AWS console before the first pipeline run)"
-  value       = aws_codestarconnections_connection.github.arn
+output "codecommit_repository_name" {
+  description = "Name of the CodeCommit repository that feeds the pipeline"
+  value       = aws_codecommit_repository.app.repository_name
+}
+
+output "codecommit_clone_url_http" {
+  description = "HTTPS clone URL of the CodeCommit repository (use this as the git remote)"
+  value       = aws_codecommit_repository.app.clone_url_http
+}
+
+output "codecommit_clone_url_ssh" {
+  description = "SSH clone URL of the CodeCommit repository"
+  value       = aws_codecommit_repository.app.clone_url_ssh
 }
 
 # -----------------------------------------------------------------------------
